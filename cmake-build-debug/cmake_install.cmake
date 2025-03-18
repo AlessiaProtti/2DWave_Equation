@@ -1,4 +1,4 @@
-# Install script for directory: /home/alessia/CLionProjects/2DWave_Equation
+# Install script for directory: /home/roberto/Uni/ACA/2DWave_Equation
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -57,6 +57,6 @@ endif()
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-  file(WRITE "/home/alessia/CLionProjects/2DWave_Equation/cmake-build-debug/${CMAKE_INSTALL_MANIFEST}"
+  file(WRITE "/home/roberto/Uni/ACA/2DWave_Equation/cmake-build-debug/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()

@@ -1,4 +1,5 @@
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 
@@ -6,6 +7,7 @@
 #define T 3
 #define DIMX 300
 #define DIMY 300
+#define MAX_ITER 1000
 
 
 void update(double u[T][DIMX][DIMY], double alpha[DIMX][DIMY]){
@@ -34,6 +36,15 @@ void update(double u[T][DIMX][DIMY], double alpha[DIMX][DIMY]){
             u[0][i][j] *= 0.995;            //togliere energia per cagate fisiche
         }
     }
+
+    for(int i = 0; i < DIMX; i++){
+        for(int j = 0; j < DIMY; j++){
+            printf("%-6f ", u[1][i][j]);
+        }
+        printf("\n");
+    }
+    printf("\n\n\n");
+
 
 }
 
@@ -85,9 +96,11 @@ int main(void){
     //Random perturbations
     srand(time(0));
 
-    while(1){
+    int count=0;
+    while(count<MAX_ITER){
         perturbate(u);
         update(u, alpha);
+        count+=1;
     }
 
 
