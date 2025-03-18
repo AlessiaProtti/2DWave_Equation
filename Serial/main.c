@@ -1,13 +1,12 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 
 
 #define T 3
 #define DIMX 300
 #define DIMY 300
-#define MAX_ITER 1000
+#define MAX_ITER 100
 
 
 void initialize(double u[T][DIMX][DIMY], double alpha[DIMX][DIMY]){
@@ -21,6 +20,7 @@ void initialize(double u[T][DIMX][DIMY], double alpha[DIMX][DIMY]){
             }
         }
     }
+
     double c=0.5;
 
     for(int i=0;i<DIMX;i++){
@@ -51,6 +51,9 @@ void update(double u[T][DIMX][DIMY], double alpha[DIMX][DIMY]){
          for(int j = 1; j < DIMY-1; j++){
              u[0][i][j] = alpha[i][j] * (u[1][i-1][j] + u[1][i+1][j] + u[1][i][j-1] + u[1][i][j+1] - 4*u[1][i][j]);
              u[0][i][j] += 2*u[1][i][j] - u[2][i][j];
+
+             double prova= (alpha[i][j] * (u[1][i-1][j] + u[1][i+1][j] + u[1][i][j-1] + u[1][i][j+1] - 4*u[1][i][j])) + 2*u[1][i][j] - u[2][i][j];
+
          }
      }
 
@@ -63,7 +66,7 @@ void update(double u[T][DIMX][DIMY], double alpha[DIMX][DIMY]){
 
     for(int i = 0; i < DIMX; i++){
         for(int j = 0; j < DIMY; j++){
-            printf("%-6f ", u[1][i][j]);
+            printf("%3.1f ", u[1][i][j]);
         }
         printf("\n");
     }
@@ -94,7 +97,7 @@ void perturbate(double u[T][DIMX][DIMY]){
 
 int main(void){
     //Initializing variables
-    srand(time(0));
+    srand(1);
     double u[T][DIMX][DIMY];  //3 bc time has 3 parameters (u0, u1, u2)
     double alpha[DIMX][DIMY];
 
