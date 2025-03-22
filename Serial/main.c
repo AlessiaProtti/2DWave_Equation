@@ -4,9 +4,9 @@
 
 
 #define T 3
-#define DIMX 300
-#define DIMY 300
-#define MAX_ITER 100
+#define DIMX 500
+#define DIMY 500
+#define MAX_ITER 10000
 
 
 void initialize(double u[T][DIMX][DIMY], double alpha[DIMX][DIMY]){
@@ -30,21 +30,38 @@ void initialize(double u[T][DIMX][DIMY], double alpha[DIMX][DIMY]){
     }
 }
 
+void matrixShifting(double u[DIMX][DIMY], double v[DIMX][DIMY]){
+
+    for(int i = 0; i < DIMX; i++){
+        for(int j = 0; j < DIMY; j++){
+            u[i][j] = v[i][j];
+        }
+    }//end-for
+}
+
+void absorbingEnergy(double u[DIMX][DIMY]){
+
+    //Absorbing
+    for(int i = 1; i < DIMX-1; i++){
+        for(int j = 1; j < DIMY-1; j++){
+            u[i][j] *= 0.995;
+        }//end-for
+    }//end-for
+}
+
+void printMatrix(double u[DIMX][DIMY]){
+    for(int i = 0; i < DIMX; i++){
+        for(int j = 0; j < DIMY; j++){
+            printf("%3.1f ", u[i][j]);
+        }//end-for
+        printf("\n");
+    }//end-for
+    printf("\n\n\n");
+}
+
+
+
 void update(double u[T][DIMX][DIMY], double alpha[DIMX][DIMY]){
-
-    //u[2]=u[1]
-    for(int i = 0; i < DIMX; i++){
-        for(int j = 0; j < DIMY; j++){
-            u[2][i][j] = u[1][i][j];
-        }
-    }
-
-    //u[1]=u[0]
-    for(int i = 0; i < DIMX; i++){
-        for(int j = 0; j < DIMY; j++){
-            u[1][i][j] = u[0][i][j];
-        }
-    }
 
     //true update
      for(int i = 1; i < DIMX-1; i++){
@@ -52,27 +69,9 @@ void update(double u[T][DIMX][DIMY], double alpha[DIMX][DIMY]){
              u[0][i][j] = alpha[i][j] * (u[1][i-1][j] + u[1][i+1][j] + u[1][i][j-1] + u[1][i][j+1] - 4*u[1][i][j]);
              u[0][i][j] += 2*u[1][i][j] - u[2][i][j];
 
-             double prova= (alpha[i][j] * (u[1][i-1][j] + u[1][i+1][j] + u[1][i][j-1] + u[1][i][j+1] - 4*u[1][i][j])) + 2*u[1][i][j] - u[2][i][j];
-
-         }
-     }
-
-    //visualizing
-    for(int i = 1; i < DIMX-1; i++){
-        for(int j = 1; j < DIMY-1; j++){
-            u[0][i][j] *= 0.995;            //togliere energia per cagate fisiche
-        }
-    }
-
-    for(int i = 0; i < DIMX; i++){
-        for(int j = 0; j < DIMY; j++){
-            printf("%3.1f ", u[1][i][j]);
-        }
-        printf("\n");
-    }
-    printf("\n\n\n");
-
-
+             //double prova= (alpha[i][j] * (u[1][i-1][j] + u[1][i+1][j] + u[1][i][j-1] + u[1][i][j+1] - 4*u[1][i][j])) + 2*u[1][i][j] - u[2][i][j];
+         }//end-for
+     }//end-for
 }
 
 void perturbate(double u[T][DIMX][DIMY]){
@@ -106,7 +105,20 @@ int main(void){
     int count=0;
     while(count<MAX_ITER){
         perturbate(u);
+
+        //u[2]=u[1]
+        matrixShifting(u[2], u[1]);
+
+        //u[1]=u[0]
+        matrixShifting(u[1], u[0]);
+
         update(u, alpha);
+
+        absorbingEnergy(u[0]);
+
+        //Visualizing
+        //printMatrix(u[1]);
+
         count+=1;
     }//end-while
 
