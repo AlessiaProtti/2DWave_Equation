@@ -6,8 +6,7 @@ void main(int argc, char *argv[]){
   /* 1. Initialize MPI */
   MPI_Init(&argc, &argv);
 
-  int **mat=0;
-  //int mat[4][4]={{1, 2, 3, 4}, {5, 6, 7, 8}, {9, 10, 11, 12}, {13, 14, 15, 16}};
+  int mat = 0;
   int sendcounts[4]={4, 4, 4, 4};
   int displs[4]={0, 4, 8, 12};
   int *bufferToRecv=0;
@@ -17,18 +16,6 @@ void main(int argc, char *argv[]){
 
   if(rank==0){
     printf("Entered master!\n");
-
-    mat=malloc(4 * sizeof(int *));
-    for(int i = 0; i < 4; i++) mat[i] = (int *)malloc(4 * sizeof(int));
-
-    int con=1;
-    for(int i=0; i<4; i+=1){
-      for(int j=0; j<4; j+=1){
-        mat[i][j] = con;
-        // printf("mat[%d][%d] = %d\n", i, j, mat[i][j]);
-        con+=1;
-      }
-    }
   }else{
     printf("Worker: %d\n", rank);
   }//end-if
@@ -41,16 +28,13 @@ void main(int argc, char *argv[]){
 
   // MPI_Barrier(MPI_COMM_WORLD);
   MPI_Scatterv(mat, sendcounts, displs, MPI_INT, bufferToRecv,4, MPI_INT, 0, MPI_COMM_WORLD);
+  // MPI_Scatter(mat, 4, MPI_INT, bufferToRecv, 4, MPI_INT, 0, MPI_COMM_WORLD);
 
   for(int i=0; i<4; i++){
     printf("%d ", bufferToRecv[i]);
   }//end-for
   printf("\n");
 
-  if (rank==0)
-  {
-    free(mat);
-  }
   free(bufferToRecv);
 
   /* Terminate MPI */
