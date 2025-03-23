@@ -9,23 +9,19 @@
 #define MAX_ITER 10000
 
 
-void initialize(double u[T][DIMX][DIMY], double alpha[DIMX][DIMY]){
+void initialize(double u[T][DIMX][DIMY], double *alpha){
     int h=1;
     int l=1;
+    double c=0.5;
+
+
+    *alpha = pow(((c*l)/h), 2);
 
     for(int i = 0; i < DIMX; i++){
         for(int j = 0; j < DIMY; j++){
             for(int k = 0; k < T; k++){
                 u[k][i][j] = 0;
             }
-        }
-    }
-
-    double c=0.5;
-
-    for(int i=0;i<DIMX;i++){
-        for(int j=0;j<DIMY;j++){
-            alpha[i][j]=pow(((c*l)/h), 2);
         }
     }
 }
@@ -61,12 +57,12 @@ void printMatrix(double u[DIMX][DIMY]){
 
 
 
-void update(double u[T][DIMX][DIMY], double alpha[DIMX][DIMY]){
+void update(double u[T][DIMX][DIMY], double alpha){
 
     //true update
      for(int i = 1; i < DIMX-1; i++){
          for(int j = 1; j < DIMY-1; j++){
-             u[0][i][j] = alpha[i][j] * (u[1][i-1][j] + u[1][i+1][j] + u[1][i][j-1] + u[1][i][j+1] - 4*u[1][i][j]);
+             u[0][i][j] = alpha * (u[1][i-1][j] + u[1][i+1][j] + u[1][i][j-1] + u[1][i][j+1] - 4*u[1][i][j]);
              u[0][i][j] += 2*u[1][i][j] - u[2][i][j];
 
              //double prova= (alpha[i][j] * (u[1][i-1][j] + u[1][i+1][j] + u[1][i][j-1] + u[1][i][j+1] - 4*u[1][i][j])) + 2*u[1][i][j] - u[2][i][j];
@@ -98,9 +94,9 @@ int main(void){
     //Initializing variables
     srand(1);
     double u[T][DIMX][DIMY];  //3 bc time has 3 parameters (u0, u1, u2)
-    double alpha[DIMX][DIMY];
+    double alpha;
 
-    initialize(u, alpha);
+    initialize(u, &alpha);
 
     int count=0;
     while(count<MAX_ITER){
