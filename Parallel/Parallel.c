@@ -4,11 +4,11 @@
 #include <math.h>
 
 #define T 3
-#define DIMX 4
-#define DIMY 4
+#define DIMX 8
+#define DIMY 8
 #define MAX_ITER 1
 
-void perturbate(double u[]){
+void perturbate(double *u){
   int x=0;
   int y=0;
 
@@ -20,7 +20,9 @@ void perturbate(double u[]){
 
     for(int i = (x-2); i < (x+2); i+=1){
       for(int j = (y-2); j < (y+2); j+=1){
-        u[(i * DIMY) + j] = 120;
+        // printf("position %d,%d converted in %d\n", i, j, i*DIMY+j);
+
+        u[(i * DIMY) + j] = 120.00;
       }//end-for
     }//end-for
   }//end-for
@@ -30,6 +32,26 @@ void matrixShifting(double *buffer, int disp, int sendCount, const double v[]){
   for(int i=0; i<sendCount; i+=1){
     buffer[i]=v[disp+i];
   }//end-for
+}
+
+void update(double *buffer, int disp, int sendCount, const double u1[], const double u2[], double alpha){
+
+  //true update
+  int x, y=0;
+  for(int i=0; i<sendCount; i+=1){
+    //matrix notation
+    //check bordo
+    buffer[i]=u1[disp+i];
+  }
+
+  // for(int i = 1; i < DIMX-1; i++){
+  //   for(int j = 1; j < DIMY-1; j++){
+  //     u[0][i][j] = alpha * (u[1][i-1][j] + u[1][i+1][j] + u[1][i][j-1] + u[1][i][j+1] - 4*u[1][i][j]);
+  //     u[0][i][j] += 2*u[1][i][j] - u[2][i][j];
+  //
+  //     //double prova= (alpha[i][j] * (u[1][i-1][j] + u[1][i+1][j] + u[1][i][j-1] + u[1][i][j+1] - 4*u[1][i][j])) + 2*u[1][i][j] - u[2][i][j];
+  //   }//end-for
+  // }//end-for
 }
 
 void printMatrix(double u[]){
@@ -44,7 +66,7 @@ void printMatrix(double u[]){
 
 
 // Initializing u and alpha
-void initialize(double *u[T], double *alpha, int sendCounts[], int displs[], int size){
+void initialize(double *u[], double *alpha, int sendCounts[], int displs[], int size){
 
   int h=1;
   int l=1;
@@ -76,12 +98,12 @@ void initialize(double *u[T], double *alpha, int sendCounts[], int displs[], int
   // printf("alpha=%lf\n",*alpha);
 
   for(int i = 0; i < T; i+=1) {
-    u[i]= (double *)malloc(sizeof(double)*DIMX*DIMY);
+    u[i]=(double *)malloc(sizeof(double)*DIMX*DIMY);
   }//end-for
 
   for(int i = 0; i < T; i+=1){
-    for(int j = 0; j < DIMX*DIMY; j++){
-        u[i][j] = 0;
+    for(int j = 0; j < DIMX*DIMY; j+=1){
+        u[i][j]=0;
     }//end-for
   }//end-for
 }
@@ -113,8 +135,6 @@ void main(int argc, char *argv[]){
   // boh potrebbe servire
   MPI_Barrier(MPI_COMM_WORLD);
 
-  double tmp[]={1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4};
-
   while (nIterations < MAX_ITER){
     perturbate(u[0]);
 
@@ -122,13 +142,36 @@ void main(int argc, char *argv[]){
     //Scatter u[2]
     MPI_Scatterv(u[2], sendCounts, displs, MPI_DOUBLE, bufferToRecv, sendCounts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-    // matrixShifting(bufferToRecv, displs[rank], sendCounts[rank], tmp);
-    //
-    // for(int i = 0; i < sendCounts[rank]; i+=1){
-    //   printf("%3.1f ", bufferToRecv[i]);
-    // }//end-for
+    matrixShifting(bufferToRecv, displs[rank], sendCounts[rank], u[1]);
 
-    //printMatrix(u[0]);
+    MPI_Gatherv(bufferToRecv, sendCounts[rank], MPI_DOUBLE, u[2], sendCounts, displs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(u[2], DIMX*DIMY, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    //gather u[2]
+
+
+    //scatter u[1]
+    MPI_Scatterv(u[1], sendCounts, displs, MPI_DOUBLE, bufferToRecv, sendCounts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+    matrixShifting(bufferToRecv, displs[rank], sendCounts[rank], u[0]);
+
+    MPI_Gatherv(bufferToRecv, sendCounts[rank], MPI_DOUBLE, u[1], sendCounts, displs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(u[1], DIMX*DIMY, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    //gather u[1]
+
+
+    //scatter u[0]
+    MPI_Scatterv(u[0], sendCounts, displs, MPI_DOUBLE, bufferToRecv, sendCounts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+    //update & absorbing energy
+
+
+
+    MPI_Gatherv(bufferToRecv, sendCounts[rank], MPI_DOUBLE, u[0], sendCounts, displs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(u[0], DIMX*DIMY, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    //gather u[0]
+
+
+    printMatrix(u[1]);
     nIterations+=1;
   }//end-while
 
