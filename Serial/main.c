@@ -86,7 +86,6 @@ void perturbate(double u[T][DIMX][DIMY]){
             }
         }
     }
-
 }
 
 
@@ -102,15 +101,21 @@ int main(void){
     while(count<MAX_ITER){
         perturbate(u);
 
+        //scatter u2
         //u[2]=u[1]
         matrixShifting(u[2], u[1]);
+        //gather u2
 
+        //scatter u1
         //u[1]=u[0]
         matrixShifting(u[1], u[0]);
+        //gather u1
 
+        //scatter u0
         update(u, alpha);
 
         absorbingEnergy(u[0]);
+        //gather u0
 
         //Visualizing
         //printMatrix(u[1]);
