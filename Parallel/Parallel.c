@@ -6,7 +6,7 @@
 #define T 3
 #define DIMX 8
 #define DIMY 8
-#define MAX_ITER 1
+#define MAX_ITER 10
 
 void perturbate(double *u){
   int x=0;
@@ -28,9 +28,9 @@ void perturbate(double *u){
   }//end-for
 }
 
-void matrixShifting(double *buffer, int disp, int sendCount, const double v[]){
+void matrixShifting(double *u, int sendCount, const double v[]){
   for(int i=0; i<sendCount; i+=1){
-    buffer[i]=v[disp+i];
+    u[i]=v[i];
   }//end-for
 }
 
@@ -40,9 +40,18 @@ void update(double *buffer, int disp, int sendCount, const double u1[], const do
   int x, y=0;
   for(int i=0; i<sendCount; i+=1){
     //matrix notation
-    //check bordo
-    buffer[i]=u1[disp+i];
+    x = (i+disp+1)/(DIMY);
+    y = ((i+disp+1)%(DIMY))-1;
+
+    if (x!=0 && y!=0 && x!=DIMX-1 && y!=DIMY-1) {
+      buffer[i]= alpha*(u1[(x-1)*DIMY + y] + u1[(x+1)*DIMY + y] + u1[(x)*DIMY +(y-1)] + u1[(x)*DIMY + (y+1)] -4*u1[x*DIMY+y]);
+      buffer[i]+= 2*u1[x*DIMY+y] -u2[i];
+    }
+
+
   }
+
+
 
   // for(int i = 1; i < DIMX-1; i++){
   //   for(int j = 1; j < DIMY-1; j++){
@@ -53,6 +62,30 @@ void update(double *buffer, int disp, int sendCount, const double u1[], const do
   //   }//end-for
   // }//end-for
 }
+
+void absorbingEnergy(double *u, int sendCount, int disp) {
+  int x, y=0;
+  for(int i=0; i<sendCount; i+=1){
+    //matrix notation
+    x = (i+disp+1)/(DIMY);
+    y = ((i+disp+1)%(DIMY))-1;
+
+    if (x!=0 && y!=0 && x!=DIMX-1 && y!=DIMY-1) {
+      u[i] *= 0.995;
+    }
+
+  }
+}
+
+/*void absorbingEnergy(double u[DIMX][DIMY]){
+
+  //Absorbing
+  for(int i = 1; i < DIMX-1; i++){
+    for(int j = 1; j < DIMY-1; j++){
+      u[i][j] *= 0.995;
+    }//end-for
+  }//end-for
+}*/
 
 void printMatrix(double u[]){
   for(int i = 0; i < DIMX; i+=1){
@@ -66,7 +99,7 @@ void printMatrix(double u[]){
 
 
 // Initializing u and alpha
-void initialize(double *u[], double *alpha, int sendCounts[], int displs[], int size){
+void initialize(double *u[], double *alpha, int sendCounts[], int displs[], int size, int rank){
 
   int h=1;
   int l=1;
@@ -97,15 +130,25 @@ void initialize(double *u[], double *alpha, int sendCounts[], int displs[], int 
 
   // printf("alpha=%lf\n",*alpha);
 
-  for(int i = 0; i < T; i+=1) {
-    u[i]=(double *)malloc(sizeof(double)*DIMX*DIMY);
-  }//end-for
+  if(rank==0) {
 
-  for(int i = 0; i < T; i+=1){
-    for(int j = 0; j < DIMX*DIMY; j+=1){
-        u[i][j]=0;
+    for(int i = 0; i < T; i+=1) {
+      u[i]=(double *)malloc(sizeof(double)*DIMX*DIMY);
     }//end-for
-  }//end-for
+
+    for(int i = 0; i < T; i+=1){
+      for(int j = 0; j < DIMX*DIMY; j+=1){
+        u[i][j]=0;
+      }//end-for
+    }//end-for
+  }else {
+    u[1]=(double *)malloc(sizeof(double)*DIMX*DIMY);
+
+    for(int j = 0; j < DIMX*DIMY; j+=1){
+      u[1][j]=0;
+    }//end-for
+
+  }
 }
 
 void main(int argc, char *argv[]){
@@ -127,47 +170,57 @@ void main(int argc, char *argv[]){
   int *sendCounts=malloc(sizeof(int) * size);
   int *displs=malloc(sizeof(int) * size);
 
-  initialize(u, &alpha, sendCounts, displs, size);
+
+  initialize(u, &alpha, sendCounts, displs, size, rank);
 
   //SENDCOUNT NEEDS TO BE INITALIZED BEFORE!!!!!!!!!!!!!!!
-  double *bufferToRecv=malloc(sizeof(double) * sendCounts[rank]);
+  double *bufferToRecvU2=malloc(sizeof(double) * sendCounts[rank]);
+  double *bufferToRecvU1=malloc(sizeof(double) * sendCounts[rank]);
+  double *bufferToRecvU0=malloc(sizeof(double) * sendCounts[rank]);
+
+
 
   // boh potrebbe servire
   MPI_Barrier(MPI_COMM_WORLD);
 
   while (nIterations < MAX_ITER){
-    perturbate(u[0]);
+
+    if (rank==0) {
+      perturbate(u[0]);
+    }
 
     // printf("rank: %d, displs: %d\n", rank, displs[rank]);
     //Scatter u[2]
-    MPI_Scatterv(u[2], sendCounts, displs, MPI_DOUBLE, bufferToRecv, sendCounts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Scatterv(u[2], sendCounts, displs, MPI_DOUBLE, bufferToRecvU2, sendCounts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Scatterv(u[1], sendCounts, displs, MPI_DOUBLE, bufferToRecvU1, sendCounts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-    matrixShifting(bufferToRecv, displs[rank], sendCounts[rank], u[1]);
 
-    MPI_Gatherv(bufferToRecv, sendCounts[rank], MPI_DOUBLE, u[2], sendCounts, displs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(u[2], DIMX*DIMY, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    matrixShifting(bufferToRecvU2, sendCounts[rank], bufferToRecvU1);
+
+    MPI_Gatherv(bufferToRecvU2, sendCounts[rank], MPI_DOUBLE, u[2], sendCounts, displs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    //MPI_Bcast(u[2], DIMX*DIMY, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     //gather u[2]
 
 
-    //scatter u[1]
-    MPI_Scatterv(u[1], sendCounts, displs, MPI_DOUBLE, bufferToRecv, sendCounts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Scatterv(u[0], sendCounts, displs, MPI_DOUBLE, bufferToRecvU0, sendCounts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-    matrixShifting(bufferToRecv, displs[rank], sendCounts[rank], u[0]);
+    matrixShifting(bufferToRecvU1, sendCounts[rank], bufferToRecvU0);
 
-    MPI_Gatherv(bufferToRecv, sendCounts[rank], MPI_DOUBLE, u[1], sendCounts, displs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Gatherv(bufferToRecvU1, sendCounts[rank], MPI_DOUBLE, u[1], sendCounts, displs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
     MPI_Bcast(u[1], DIMX*DIMY, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    //gather u[1]
+
+    update(bufferToRecvU0, displs[rank], sendCounts[rank], u[1], bufferToRecvU2, alpha);
+
+    absorbingEnergy(bufferToRecvU0, sendCounts[rank], displs[rank]);
 
 
-    //scatter u[0]
-    MPI_Scatterv(u[0], sendCounts, displs, MPI_DOUBLE, bufferToRecv, sendCounts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
     //update & absorbing energy
 
 
 
-    MPI_Gatherv(bufferToRecv, sendCounts[rank], MPI_DOUBLE, u[0], sendCounts, displs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(u[0], DIMX*DIMY, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Gatherv(bufferToRecvU0, sendCounts[rank], MPI_DOUBLE, u[0], sendCounts, displs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     //gather u[0]
 
 
@@ -177,10 +230,18 @@ void main(int argc, char *argv[]){
 
   free(sendCounts);
   free(displs);
-  for(int i = 0; i < T; i+=1){
-    free(u[i]);
-  }//end-for
-  free(bufferToRecv);
+  if(rank==0) {
+    for(int i = 0; i < T; i+=1){
+      free(u[i]);
+    }//end-for
+
+  }else {
+    free(u[1]);
+  }
+
+  free(bufferToRecvU0);
+  free(bufferToRecvU1);
+  free(bufferToRecvU2);
 
   /* Terminate MPI */
   MPI_Finalize();
