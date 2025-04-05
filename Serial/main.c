@@ -2,14 +2,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-
 #define T 3
-#define DIMX 500
-#define DIMY 500
-#define MAX_ITER 10000
+#define DIMX 10000
+#define DIMY 10000
+#define MAX_ITER 100
 
 
-void initialize(double u[T][DIMX][DIMY], double *alpha){
+void initialize(double *u[T], double *alpha){
     int h=1;
     int l=1;
     double c=0.5;
@@ -17,38 +16,42 @@ void initialize(double u[T][DIMX][DIMY], double *alpha){
 
     *alpha = pow(((c*l)/h), 2);
 
-    for(int i = 0; i < DIMX; i++){
-        for(int j = 0; j < DIMY; j++){
-            for(int k = 0; k < T; k++){
-                u[k][i][j] = 0;
-            }
-        }
-    }
-}
-
-void matrixShifting(double u[DIMX][DIMY], double v[DIMX][DIMY]){
-
-    for(int i = 0; i < DIMX; i++){
-        for(int j = 0; j < DIMY; j++){
-            u[i][j] = v[i][j];
-        }
+    for(int i=0; i<T; i+=1){
+        u[i]=(double *)malloc(sizeof(double)*DIMX*DIMY);
     }//end-for
-}
 
-void absorbingEnergy(double u[DIMX][DIMY]){
-
-    //Absorbing
-    for(int i = 1; i < DIMX-1; i++){
-        for(int j = 1; j < DIMY-1; j++){
-            u[i][j] *= 0.995;
+    for(int k=0; k<T; k+=1){
+        for(int i=0; i<DIMX*DIMY; i+=1){
+            u[k][i] = 0;
         }//end-for
     }//end-for
 }
 
-void printMatrix(double u[DIMX][DIMY]){
-    for(int i = 0; i < DIMX; i++){
-        for(int j = 0; j < DIMY; j++){
-            printf("%3.1f ", u[i][j]);
+void matrixShifting(double u[], double v[]){
+    for(int i = 0; i < DIMX*DIMY; i+=1){
+        u[i] = v[i];
+    }//end-for
+}
+
+void absorbingEnergy(double u[]){
+
+    //Absorbing
+    int x, y=0;
+    for(int i=0; i<DIMX*DIMY; i+=1){
+        //matrix notation
+        x = (i+1)/(DIMY);
+        y = ((i+1)%(DIMY))-1;
+
+        if (x!=0 && y!=0 && x!=DIMX-1 && y!=DIMY-1) {
+            u[i] *= 0.995;
+        }//end-if
+    }//end-for
+}
+
+void printMatrix(double u[]){
+    for(int i = 0; i < DIMX; i+=1){
+        for(int j = 0; j < DIMY; j+=1){
+            printf("%3.1f ", u[(i*DIMY) + j]);
         }//end-for
         printf("\n");
     }//end-for
@@ -57,20 +60,32 @@ void printMatrix(double u[DIMX][DIMY]){
 
 
 
-void update(double u[T][DIMX][DIMY], double alpha){
+void update(double u0[], double u1[], double u2[], double alpha){
 
     //true update
-     for(int i = 1; i < DIMX-1; i++){
-         for(int j = 1; j < DIMY-1; j++){
-             u[0][i][j] = alpha * (u[1][i-1][j] + u[1][i+1][j] + u[1][i][j-1] + u[1][i][j+1] - 4*u[1][i][j]);
-             u[0][i][j] += 2*u[1][i][j] - u[2][i][j];
+     // for(int i = 1; i < DIMX-1; i++){
+     //     for(int j = 1; j < DIMY-1; j++){
+     //         u[0][i][j] = alpha * (u[1][i-1][j] + u[1][i+1][j] + u[1][i][j-1] + u[1][i][j+1] - 4*u[1][i][j]);
+     //         u[0][i][j] += 2*u[1][i][j] - u[2][i][j];
+     //
+     //         //double prova= (alpha[i][j] * (u[1][i-1][j] + u[1][i+1][j] + u[1][i][j-1] + u[1][i][j+1] - 4*u[1][i][j])) + 2*u[1][i][j] - u[2][i][j];
+     //     }//end-for
+     // }//end-for
 
-             //double prova= (alpha[i][j] * (u[1][i-1][j] + u[1][i+1][j] + u[1][i][j-1] + u[1][i][j+1] - 4*u[1][i][j])) + 2*u[1][i][j] - u[2][i][j];
-         }//end-for
-     }//end-for
+    int x, y=0;
+    for(int i=0; i<DIMX*DIMY; i+=1){
+        //matrix notation
+        x = (i+1)/(DIMY);
+        y = ((i+1)%(DIMY))-1;
+
+        if (x!=0 && y!=0 && x!=DIMX-1 && y!=DIMY-1){
+            u0[i]= alpha*(u1[(x-1)*DIMY + y] + u1[(x+1)*DIMY + y] + u1[(x)*DIMY +(y-1)] + u1[(x)*DIMY + (y+1)] -4*u1[x*DIMY+y]);
+            u0[i]+= 2*u1[x*DIMY+y] - u2[i];
+        }//end-if
+    }//end-for
 }
 
-void perturbate(double u[T][DIMX][DIMY]){
+void perturbate(double u[]){
     int x=0;
     int y=0;
 
@@ -82,46 +97,45 @@ void perturbate(double u[T][DIMX][DIMY]){
 
         for(int i = (x-2); i < (x+2); i++){
             for(int j = (y-2); j < (y+2); j++){
-                u[0][i][j] = 120;
+                u[(i * DIMY) + j] = 120.00;
+                // u[0][i][j] = 120;
             }
         }
     }
 }
 
 
-int main(void){
+int main(int argc, char **argv){
     //Initializing variables
     srand(1);
-    double u[T][DIMX][DIMY];  //3 bc time has 3 parameters (u0, u1, u2)
+    double *u[T];  //3 bc time has 3 parameters (u0, u1, u2)
     double alpha;
 
     initialize(u, &alpha);
 
     int count=0;
     while(count<MAX_ITER){
-        perturbate(u);
+        perturbate(u[0]);
 
-        //scatter u2
         //u[2]=u[1]
         matrixShifting(u[2], u[1]);
-        //gather u2
 
-        //scatter u1
         //u[1]=u[0]
         matrixShifting(u[1], u[0]);
-        //gather u1
 
-        //scatter u0
-        update(u, alpha);
+        update(u[0], u[1], u[2], alpha);
 
         absorbingEnergy(u[0]);
-        //gather u0
 
         //Visualizing
         //printMatrix(u[1]);
 
         count+=1;
     }//end-while
+
+    for(int i=0; i<T; i+=1){
+        free(u[i]);
+    }//end-for
 
     return 0;
 }

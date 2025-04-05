@@ -4,9 +4,9 @@
 #include <math.h>
 
 #define T 3
-#define DIMX 8
-#define DIMY 8
-#define MAX_ITER 10
+#define DIMX 10000
+#define DIMY 10000
+#define MAX_ITER 100
 
 void perturbate(double *u){
   int x=0;
@@ -37,21 +37,17 @@ void matrixShifting(double *u, int sendCount, const double v[]){
 void update(double *buffer, int disp, int sendCount, const double u1[], const double u2[], double alpha){
 
   //true update
-  int x, y=0;
+  int x=0, y=0;
   for(int i=0; i<sendCount; i+=1){
     //matrix notation
     x = (i+disp+1)/(DIMY);
     y = ((i+disp+1)%(DIMY))-1;
 
-    if (x!=0 && y!=0 && x!=DIMX-1 && y!=DIMY-1) {
+    if(x!=0 && y!=0 && x!=DIMX-1 && y!=DIMY-1){
       buffer[i]= alpha*(u1[(x-1)*DIMY + y] + u1[(x+1)*DIMY + y] + u1[(x)*DIMY +(y-1)] + u1[(x)*DIMY + (y+1)] -4*u1[x*DIMY+y]);
-      buffer[i]+= 2*u1[x*DIMY+y] -u2[i];
-    }
-
-
-  }
-
-
+      buffer[i]+= 2*u1[x*DIMY+y] - u2[i];
+    }//end-if
+  }//end-for
 
   // for(int i = 1; i < DIMX-1; i++){
   //   for(int j = 1; j < DIMY-1; j++){
@@ -108,30 +104,24 @@ void initialize(double *u[], double *alpha, int sendCounts[], int displs[], int 
   int nElPerProc=0;
   int remainder=0;
 
-  // Initializing sendCounts with the total n of element divide by n of processes and the last sendCounts cell with the remainder too
+  // Initializing sendCounts with the total n of element divided by n. of processes and the last sendCounts cell with the remainder too
   nElPerProc=(DIMX*DIMY)/size;
   remainder=(DIMX*DIMY)%size;
-  for(int i = 0; i < size-1; i+=1) {
+  for(int i = 0; i < size-1; i+=1){
     sendCounts[i]=nElPerProc;
-
-    // printf("sendCounts[%d]=%d\n",i,sendCounts[i]);
   }//end-for
   sendCounts[size-1]=nElPerProc+remainder;
-  // printf("sendCounts[%d]=%d\n",size-1,sendCounts[size-1]);
 
   displs[0]=0;
   for(int i = 1; i < size; i+=1) {
     displs[i]=sendCounts[i-1]*i;
-
-    // printf("displs[%d]=%d\n",i,displs[i]);
   }//end-for
 
   *alpha = pow(((c*l)/h), 2);
 
-  // printf("alpha=%lf\n",*alpha);
-
-  if(rank==0) {
-
+  //Master initializes u0, u1, u2
+  //Workers initialize u1 only
+  if(rank==0){
     for(int i = 0; i < T; i+=1) {
       u[i]=(double *)malloc(sizeof(double)*DIMX*DIMY);
     }//end-for
@@ -141,27 +131,30 @@ void initialize(double *u[], double *alpha, int sendCounts[], int displs[], int 
         u[i][j]=0;
       }//end-for
     }//end-for
-  }else {
+  }else{
     u[1]=(double *)malloc(sizeof(double)*DIMX*DIMY);
 
     for(int j = 0; j < DIMX*DIMY; j+=1){
       u[1][j]=0;
     }//end-for
-
-  }
+  }//end-if
 }
 
+/**********************************************************/
 void main(int argc, char *argv[]){
+/**********************************************************/
   /* 1. Initialize MPI */
   MPI_Init(&argc, &argv);
-
-  // MPI variables
+/**********************************************************/
+// MPI variables
+/**********************************************************/
   int rank;
   int size;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-  // Domain variables
+/**********************************************************/
+// Domain variables
+/**********************************************************/
   srand(1);
   double *u[T];
   double alpha;
@@ -170,79 +163,114 @@ void main(int argc, char *argv[]){
   int *sendCounts=malloc(sizeof(int) * size);
   int *displs=malloc(sizeof(int) * size);
 
-
-  initialize(u, &alpha, sendCounts, displs, size, rank);
-
   //SENDCOUNT NEEDS TO BE INITALIZED BEFORE!!!!!!!!!!!!!!!
+  initialize(u, &alpha, sendCounts, displs, size, rank);
   double *bufferToRecvU2=malloc(sizeof(double) * sendCounts[rank]);
   double *bufferToRecvU1=malloc(sizeof(double) * sendCounts[rank]);
   double *bufferToRecvU0=malloc(sizeof(double) * sendCounts[rank]);
+  double *bufferU1=malloc(sizeof(double) * sendCounts[rank]*5);
+/**********************************************************/
+// Main body
+/**********************************************************/
+  // MPI_Barrier(MPI_COMM_WORLD);
 
-
-
-  // boh potrebbe servire
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  while (nIterations < MAX_ITER){
-
-    if (rank==0) {
+  /*while (nIterations < MAX_ITER){
+    if(rank==0){
       perturbate(u[0]);
-    }
+    }//end-if
 
-    // printf("rank: %d, displs: %d\n", rank, displs[rank]);
-    //Scatter u[2]
+    //Scatter u[2], u[1]
     MPI_Scatterv(u[2], sendCounts, displs, MPI_DOUBLE, bufferToRecvU2, sendCounts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Scatterv(u[1], sendCounts, displs, MPI_DOUBLE, bufferToRecvU1, sendCounts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-
+    //u[2]=u[1]
     matrixShifting(bufferToRecvU2, sendCounts[rank], bufferToRecvU1);
 
+    //Gather u[2]
     MPI_Gatherv(bufferToRecvU2, sendCounts[rank], MPI_DOUBLE, u[2], sendCounts, displs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     //MPI_Bcast(u[2], DIMX*DIMY, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    //gather u[2]
 
-
+    //Scatter u[0]
     MPI_Scatterv(u[0], sendCounts, displs, MPI_DOUBLE, bufferToRecvU0, sendCounts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
+    //u[1]=u[0]
     matrixShifting(bufferToRecvU1, sendCounts[rank], bufferToRecvU0);
 
+    //Gather u[1]
     MPI_Gatherv(bufferToRecvU1, sendCounts[rank], MPI_DOUBLE, u[1], sendCounts, displs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-    MPI_Bcast(u[1], DIMX*DIMY, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-
-    update(bufferToRecvU0, displs[rank], sendCounts[rank], u[1], bufferToRecvU2, alpha);
-
-    absorbingEnergy(bufferToRecvU0, sendCounts[rank], displs[rank]);
-
-
+    //Broadcast of u[1]
+    // MPI_Bcast(u[1], DIMX*DIMY, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Request request;
+    MPI_Ibcast(u[1], DIMX*DIMY, MPI_DOUBLE, 0, MPI_COMM_WORLD, &request);
+    MPI_Barrier(MPI_COMM_WORLD);
 
     //update & absorbing energy
+    update(bufferToRecvU0, displs[rank], sendCounts[rank], u[1], bufferToRecvU2, alpha);
+    absorbingEnergy(bufferToRecvU0, sendCounts[rank], displs[rank]);
 
-
-
-    MPI_Gatherv(bufferToRecvU0, sendCounts[rank], MPI_DOUBLE, u[0], sendCounts, displs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     //gather u[0]
+    MPI_Gatherv(bufferToRecvU0, sendCounts[rank], MPI_DOUBLE, u[0], sendCounts, displs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
+    // if (rank==0){
+    //   printMatrix(u[1]);
+    // }
+    nIterations+=1;
+  }//end-while*/
 
-    printMatrix(u[1]);
+  while (nIterations < MAX_ITER){
+    if(rank==0){
+      perturbate(u[0]);
+
+      //u[2]=u[1]
+      for(int i = 0; i < DIMX*DIMY; i+=1){
+        u[2][i] = u[1][i];
+      }//end-for
+
+      //u[1]=u[0]
+      for(int i = 0; i < DIMX*DIMY; i+=1){
+        u[1][i] = u[0][i];
+      }//end-for
+    }//end-if
+
+    //Scatter u2, u0
+    MPI_Scatterv(u[2], sendCounts, displs, MPI_DOUBLE, bufferToRecvU2, sendCounts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Scatterv(u[0], sendCounts, displs, MPI_DOUBLE, bufferToRecvU0, sendCounts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+    //Broadcast of u[1]
+    MPI_Request request;
+    MPI_Ibcast(u[1], DIMX*DIMY, MPI_DOUBLE, 0, MPI_COMM_WORLD, &request);
+    //MPI_Barrier(MPI_COMM_WORLD);
+
+    //update & absorbing energy
+    update(bufferToRecvU0, displs[rank], sendCounts[rank], u[1], bufferToRecvU2, alpha);
+    absorbingEnergy(bufferToRecvU0, sendCounts[rank], displs[rank]);
+
+    //gather u[0]
+    MPI_Gatherv(bufferToRecvU0, sendCounts[rank], MPI_DOUBLE, u[0], sendCounts, displs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+    // if (rank==0){
+    //   printMatrix(u[1]);
+    // }
     nIterations+=1;
   }//end-while
 
-  free(sendCounts);
-  free(displs);
-  if(rank==0) {
+  if(rank==0){
     for(int i = 0; i < T; i+=1){
       free(u[i]);
     }//end-for
-
-  }else {
+  }else{
     free(u[1]);
-  }
+  }//end-if
 
   free(bufferToRecvU0);
   free(bufferToRecvU1);
   free(bufferToRecvU2);
-
+  free(bufferU1);
+  free(sendCounts);
+  free(displs);
+/**********************************************************/
   /* Terminate MPI */
   MPI_Finalize();
+/**********************************************************/
 }
