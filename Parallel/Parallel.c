@@ -28,11 +28,17 @@ void perturbate(double *u){
   }//end-for
 }
 
-void matrixShifting(double *u, int sendCount, const double v[]){
+void matrixShifting(double u[], double v[]){
+  for(int i = 0; i < DIMX*DIMY; i+=1){
+    u[i] = v[i];
+  }//end-for
+}
+
+/*void matrixShifting(double *u, int sendCount, const double v[]){
   for(int i=0; i<sendCount; i+=1){
     u[i]=v[i];
   }//end-for
-}
+}*/
 
 void update(double *buffer, int disp, int sendCount, const double u1[], const double u2[], double alpha){
 
@@ -223,14 +229,11 @@ void main(int argc, char *argv[]){
       perturbate(u[0]);
 
       //u[2]=u[1]
-      for(int i = 0; i < DIMX*DIMY; i+=1){
-        u[2][i] = u[1][i];
-      }//end-for
+      matrixShifting(u[2], u[1]);
 
       //u[1]=u[0]
-      for(int i = 0; i < DIMX*DIMY; i+=1){
-        u[1][i] = u[0][i];
-      }//end-for
+      matrixShifting(u[1], u[0]);
+
     }//end-if
 
     //Scatter u2, u0
@@ -240,6 +243,7 @@ void main(int argc, char *argv[]){
     //Broadcast of u[1]
     MPI_Request request;
     MPI_Ibcast(u[1], DIMX*DIMY, MPI_DOUBLE, 0, MPI_COMM_WORLD, &request);
+    MPI_Wait(&request, MPI_STATUS_IGNORE);
     //MPI_Barrier(MPI_COMM_WORLD);
 
     //update & absorbing energy
