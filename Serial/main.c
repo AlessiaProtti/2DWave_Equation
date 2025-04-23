@@ -105,11 +105,28 @@ void perturbate(double u[]){
 }
 
 
+void createFile(FILE *fp, double u[], char filename[]) {
+
+    fp=fopen(filename,"a+");
+    for(int i=0; i<DIMX; i+=1) {
+        for(int j=0; j<DIMY; j+=1) {
+            fprintf(fp,"%f ", u[(i * DIMY) + j]);
+        }
+        fprintf(fp,"\n");
+    }
+    fclose(fp);
+}
+
+
 int main(int argc, char **argv){
     //Initializing variables
     srand(1);
     double *u[T];  //3 bc time has 3 parameters (u0, u1, u2)
     double alpha;
+    //
+    // FILE *fp0;
+    // FILE *fp1;
+    // FILE *fp2;
 
     initialize(u, &alpha);
 
@@ -126,6 +143,10 @@ int main(int argc, char **argv){
         update(u[0], u[1], u[2], alpha);
 
         absorbingEnergy(u[0]);
+
+        // createFile(fp0, u[0], "u0.txt");
+        // createFile(fp1, u[1], "u1.txt");
+        // createFile(fp2, u[2], "u2.txt");
 
         //Visualizing
         //printMatrix(u[1]);
