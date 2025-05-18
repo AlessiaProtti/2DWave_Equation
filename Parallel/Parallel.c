@@ -6,7 +6,7 @@
 #define T 3
 #define DIMX 10000
 #define DIMY 10000
-#define MAX_ITER 100
+#define MAX_ITER 40
 
 void perturbate(double *u){
   int x=0;
@@ -233,7 +233,6 @@ void main(int argc, char *argv[]){
 
       //u[1]=u[0]
       matrixShifting(u[1], u[0]);
-
     }//end-if
 
     //Scatter u2, u0
@@ -243,8 +242,8 @@ void main(int argc, char *argv[]){
     //Broadcast of u[1]
     MPI_Request request;
     MPI_Ibcast(u[1], DIMX*DIMY, MPI_DOUBLE, 0, MPI_COMM_WORLD, &request);
-    MPI_Wait(&request, MPI_STATUS_IGNORE);
-    //MPI_Barrier(MPI_COMM_WORLD);
+    //MPI_Wait(&request, MPI_STATUS_IGNORE);
+    MPI_Barrier(MPI_COMM_WORLD);
 
     //update & absorbing energy
     update(bufferToRecvU0, displs[rank], sendCounts[rank], u[1], bufferToRecvU2, alpha);

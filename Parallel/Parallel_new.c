@@ -5,130 +5,27 @@
 #define T 3
 #define DIMX 10000
 #define DIMY 10000
-#define MAX_ITER 100
+#define RAINDROP 120.00
+#define MAX_ITER 40
 
-// void perturbate(double *u){
-//   int x=0;
-//   int y=0;
-//
-//   //Generate random number for perturbations
-//   double num=rand() % 1;
-//   if(num<0.02){
-//     x=rand() % ((DIMX-5) - 5 + 1) + 5;
-//     y=rand() % ((DIMY-5) - 5 + 1) + 5;
-//
-//     for(int i = (x-2); i < (x+2); i+=1){
-//       for(int j = (y-2); j < (y+2); j+=1){
-//         // printf("position %d,%d converted in %d\n", i, j, i*DIMY+j);
-//
-//         u[(i * DIMY) + j] = 120.00;
-//       }//end-for
-//     }//end-for
-//   }//end-for
-// }
-
-void perturbate(double *u, int sendCount, int disp){
-  //printf("sendCount: %d\n", sendCount);
-  //printf("disp: %d\n", disp)
-
-  double num=rand() % 1;
-  if(num<0.02){
-    int pos=rand() % ((sendCount-2)+1);
-
-    for(int i=pos; i<pos+2; i+=1){
-      int x = (i+disp+1)/(DIMY);
-      int y = ((i+disp+1)%(DIMY))-1;
-
-      if(x!=0 && y!=0 && x!=DIMX-1 && y!=DIMY-1){
-        u[i]=120.00;
-      }//end-if
-    }//end-for
-  }//end-if
-}
-
-// void matrixShifting(double u[], double v[]){
-//   for(int i = 0; i < DIMX*DIMY; i+=1){
-//     u[i] = v[i];
-//   }//end-for
-// }
-
-void matrixShifting(double *u, int sendCount, const double v[]){
-  for(int i=0; i<sendCount; i+=1){
-    u[i]=v[i];
-  }//end-for
-}
-
-void update(double *buffer, int disp, int sendCount, const double u1[], const double u2[], double alpha){
-
-  //true update
-  int x=0, y=0;
-  for(int i=0; i<sendCount; i+=1){
-    //matrix notation
-    x = (i+disp+1)/(DIMY);
-    y = ((i+disp+1)%(DIMY))-1;
-
-    if(x!=0 && y!=0 && x!=DIMX-1 && y!=DIMY-1){
-      buffer[i]= alpha*(u1[(x-1)*DIMY + y] + u1[(x+1)*DIMY + y] + u1[(x)*DIMY +(y-1)] + u1[(x)*DIMY + (y+1)] -4*u1[x*DIMY+y]);
-      buffer[i]+= 2*u1[x*DIMY+y] - u2[i];
-    }//end-if
-  }//end-for
-
-  // for(int i = 1; i < DIMX-1; i++){
-  //   for(int j = 1; j < DIMY-1; j++){
-  //     u[0][i][j] = alpha * (u[1][i-1][j] + u[1][i+1][j] + u[1][i][j-1] + u[1][i][j+1] - 4*u[1][i][j]);
-  //     u[0][i][j] += 2*u[1][i][j] - u[2][i][j];
-  //
-  //     //double prova= (alpha[i][j] * (u[1][i-1][j] + u[1][i+1][j] + u[1][i][j-1] + u[1][i][j+1] - 4*u[1][i][j])) + 2*u[1][i][j] - u[2][i][j];
-  //   }//end-for
-  // }//end-for
-}
-
-void absorbingEnergy(double *u, int sendCount, int disp) {
-  int x, y=0;
-  for(int i=0; i<sendCount; i+=1){
-    //matrix notation
-    x = (i+disp+1)/(DIMY);
-    y = ((i+disp+1)%(DIMY))-1;
-
-    if (x!=0 && y!=0 && x!=DIMX-1 && y!=DIMY-1) {
-      u[i] *= 0.995;
-    }
-
-  }
-}
-
-/*void absorbingEnergy(double u[DIMX][DIMY]){
-
-  //Absorbing
-  for(int i = 1; i < DIMX-1; i++){
-    for(int j = 1; j < DIMY-1; j++){
-      u[i][j] *= 0.995;
-    }//end-for
-  }//end-for
-}*/
-
-void printMatrix(double u[]){
-  for(int i = 0; i < DIMX; i+=1){
-    for(int j = 0; j < DIMY; j+=1){
-      printf("%3.1f ", u[(i*DIMY) + j]);
-    }//end-for
-    printf("\n");
-  }//end-for
-  printf("\n\n\n");
-}
-
-
-// Initializing u and alpha
-void initialize(double *u[], double *alpha, int sendCounts[], int displs[], int size, int rank){
-
-  int h=1;
-  int l=1;
-  double c=0.5;
+/**********************************************************/
+// Method to initialize u, alpha, sendCounts, displs.
+/**********************************************************/
+void initialize(double *u[], double *alpha, int sendCounts[], int displs[], const int size, const int rank){
+/**********************************************************/
+//LOCAL VARIABLES
+/**********************************************************/
+  const int h=1;
+  const int l=1;
+  const double c=0.5;
 
   int nElPerProc=0;
   int remainder=0;
+/**********************************************************/
+//METHOD BODY
+/**********************************************************/
 
-  // Initializing sendCounts with the total n of element divided by n. of processes and the last sendCounts cell with the remainder too
+  //Initializing sendCounts with the total n. of elements divided by n. of processes and the last sendCounts cell with the remainder too
   nElPerProc=(DIMX*DIMY)/size;
   remainder=(DIMX*DIMY)%size;
   for(int i = 0; i < size-1; i+=1){
@@ -137,43 +34,138 @@ void initialize(double *u[], double *alpha, int sendCounts[], int displs[], int 
   sendCounts[size-1]=nElPerProc+remainder;
 
   displs[0]=0;
-  for(int i = 1; i < size; i+=1) {
+  for(int i = 1; i < size; i+=1){
     displs[i]=sendCounts[i-1]*i;
   }//end-for
 
-  // for(int i=0; i<size; i+=1){
-  //   printf("sendCount[%d]=%d\n", i, sendCounts[i]);
-  // }//end
-  //
-  // for(int i=0; i<size; i+=1){
-  //   printf("displs[%d]=%d\n", i, displs[i]);
-  // }//end
-
+  //Initializing alpha
   *alpha = ((c*l)/h)*((c*l)/h);
 
-  //Master initializes u0, u1, u2
-  //Workers initialize u1 only
+  //Master initializes u0, u1, u2, workers initialize u1 only
   if(rank==0){
-    for(int i = 0; i < T; i+=1) {
+    for(int i = 0; i < T; i+=2){
       u[i]=(double *)malloc(sizeof(double)*DIMX*DIMY);
     }//end-for
 
-    for(int i = 0; i < T; i+=1){
+    for(int i = 0; i < T; i+=2){
       for(int j = 0; j < DIMX*DIMY; j+=1){
         u[i][j]=0;
       }//end-for
     }//end-for
-  }else{
-    u[1]=(double *)malloc(sizeof(double)*DIMX*DIMY);
-
-    for(int j = 0; j < DIMX*DIMY; j+=1){
-      u[1][j]=0;
-    }//end-for
   }//end-if
+  u[1]=(double *)malloc(sizeof(double)*DIMX*DIMY);
+
+  for(int j = 0; j < DIMX*DIMY; j+=1){
+    u[1][j]=0;
+  }//end-for
+/**********************************************************/
 }
 
 /**********************************************************/
-void main(int argc, char *argv[]){
+// Method to virtually place a raindrop
+/**********************************************************/
+void perturbate(double *u, const int sendCount, const int disp){
+/**********************************************************/
+//LOCAL VARIABLES
+/**********************************************************/
+  const double num=rand() % 1;
+/**********************************************************/
+//METHOD BODY
+/**********************************************************/
+  if(num<0.02){
+    const int pos=rand() % ((sendCount-2)+1);
+
+    for(int i=pos; i<pos+2; i+=1){
+      const int x = (i+disp)/(DIMY);
+      const int y = ((i+disp)%(DIMY));
+
+      if(x!=0 && y!=0 && x!=DIMX-1 && y!=DIMY-1){
+        u[i]=RAINDROP;
+      }//end-if
+    }//end-for
+  }//end-if
+/**********************************************************/
+}
+
+/**********************************************************/
+// Method to shift matrices
+/**********************************************************/
+void matrixShifting(double *u, const int sendCount, const double v[]){
+/**********************************************************/
+//METHOD BODY
+/**********************************************************/
+  for(int i=0; i<sendCount; i+=1){
+    u[i]=v[i];
+  }//end-for
+/**********************************************************/
+}
+
+/**********************************************************/
+// Method implementing the actual 2D wave equation
+/**********************************************************/
+void update(double *buffer, const int disp, const int sendCount, const double u1[], const double u2[], const double alpha){
+/**********************************************************/
+//LOCAL VARIABLES
+/**********************************************************/
+  int x=0, y=0;
+/**********************************************************/
+//METHOD BODY
+/**********************************************************/
+  for(int i=0; i<sendCount; i+=1){
+    //matrix notation
+    x = (i+disp)/(DIMY);
+    y = ((i+disp)%(DIMY));
+
+    if(x!=0 && y!=0 && x!=DIMX-1 && y!=DIMY-1){
+      buffer[i]= alpha*(u1[(x-1)*DIMY + y] + u1[(x+1)*DIMY + y] + u1[(x)*DIMY +(y-1)] + u1[(x)*DIMY + (y+1)] -4*u1[x*DIMY+y]);
+      buffer[i]+= 2*u1[x*DIMY+y] - u2[i];
+    }//end-if
+  }//end-for
+/**********************************************************/
+}
+
+/**********************************************************/
+// Method used to remove energy from the system
+/**********************************************************/
+void absorbingEnergy(double *u, const int sendCount, const int disp){
+/**********************************************************/
+//LOCAL VARIABLES
+/**********************************************************/
+  int y=0;
+/**********************************************************/
+//METHOD BODY
+/**********************************************************/
+  for(int i=0; i<sendCount; i+=1){
+    //matrix notation
+    const int x = (i + disp)/(DIMY);
+    y=((i+disp)%(DIMY));
+
+    if(x!=0 && y!=0 && x!=DIMX-1 && y!=DIMY-1){
+      u[i] *= 0.995;
+    }//end-if
+  }//end-for
+/**********************************************************/
+}
+
+/**********************************************************/
+// Method used to visualize the matrices
+/**********************************************************/
+void printMatrix(double u[]){
+/**********************************************************/
+//METHOD BODY
+/**********************************************************/
+  for(int i = 0; i < DIMX; i+=1){
+    for(int j = 0; j < DIMY; j+=1){
+      printf("%3.1f ", u[(i*DIMY) + j]);
+    }//end-for
+    printf("\n");
+  }//end-for
+  printf("\n\n\n");
+/**********************************************************/
+}
+
+/**********************************************************/
+int main(int argc, char *argv[]){
 /**********************************************************/
   /* 1. Initialize MPI */
   MPI_Init(&argc, &argv);
@@ -194,68 +186,28 @@ void main(int argc, char *argv[]){
 
   int *sendCounts=malloc(sizeof(int) * size);
   int *displs=malloc(sizeof(int) * size);
-  int indices[16]={0};
-  int pert=0;
+  if(!sendCounts || !displs){
+    perror("Error when allocating sendCounts or displs!\n");
+    exit(EXIT_FAILURE);
+  }//end-if
 
   //SENDCOUNT NEEDS TO BE INITALIZED BEFORE!!!!!!!!!!!!!!!
   initialize(u, &alpha, sendCounts, displs, size, rank);
   double *bufferToRecvU2=malloc(sizeof(double) * sendCounts[rank]);
   double *bufferToRecvU1=malloc(sizeof(double) * sendCounts[rank]);
   double *bufferToRecvU0=malloc(sizeof(double) * sendCounts[rank]);
+  if(!bufferToRecvU2 || !bufferToRecvU1 || !bufferToRecvU0){
+    perror("Error when allocating one of the buffers!\n");
+    exit(EXIT_FAILURE);
+  }//end-if
 /**********************************************************/
 // Main body
 /**********************************************************/
-  // MPI_Barrier(MPI_COMM_WORLD);
-
-  /*while (nIterations < MAX_ITER){
-    if(rank==0){
-      perturbate(u[0]);
-    }//end-if
-
-    //Scatter u[2], u[1]
-    MPI_Scatterv(u[2], sendCounts, displs, MPI_DOUBLE, bufferToRecvU2, sendCounts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Scatterv(u[1], sendCounts, displs, MPI_DOUBLE, bufferToRecvU1, sendCounts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
-
-    //u[2]=u[1]
-    matrixShifting(bufferToRecvU2, sendCounts[rank], bufferToRecvU1);
-
-    //Gather u[2]
-    MPI_Gatherv(bufferToRecvU2, sendCounts[rank], MPI_DOUBLE, u[2], sendCounts, displs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    //MPI_Bcast(u[2], DIMX*DIMY, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-
-    //Scatter u[0]
-    MPI_Scatterv(u[0], sendCounts, displs, MPI_DOUBLE, bufferToRecvU0, sendCounts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
-
-    //u[1]=u[0]
-    matrixShifting(bufferToRecvU1, sendCounts[rank], bufferToRecvU0);
-
-    //Gather u[1]
-    MPI_Gatherv(bufferToRecvU1, sendCounts[rank], MPI_DOUBLE, u[1], sendCounts, displs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-
-    //Broadcast of u[1]
-    // MPI_Bcast(u[1], DIMX*DIMY, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Request request;
-    MPI_Ibcast(u[1], DIMX*DIMY, MPI_DOUBLE, 0, MPI_COMM_WORLD, &request);
-    MPI_Barrier(MPI_COMM_WORLD);
-
-    //update & absorbing energy
-    update(bufferToRecvU0, displs[rank], sendCounts[rank], u[1], bufferToRecvU2, alpha);
-    absorbingEnergy(bufferToRecvU0, sendCounts[rank], displs[rank]);
-
-    //gather u[0]
-    MPI_Gatherv(bufferToRecvU0, sendCounts[rank], MPI_DOUBLE, u[0], sendCounts, displs, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-
-    // if (rank==0){
-    //   printMatrix(u[1]);
-    // }
-    nIterations+=1;
-  }//end-while*/
-
   MPI_Scatterv(u[2], sendCounts, displs, MPI_DOUBLE, bufferToRecvU2, sendCounts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
   MPI_Scatterv(u[1], sendCounts, displs, MPI_DOUBLE, bufferToRecvU1, sendCounts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
   MPI_Scatterv(u[0], sendCounts, displs, MPI_DOUBLE, bufferToRecvU0, sendCounts[rank], MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-  while (nIterations < MAX_ITER){
+  while(nIterations < MAX_ITER){
     perturbate(bufferToRecvU0, sendCounts[rank], displs[rank]);
 
     //u[2]=u[1]
@@ -264,7 +216,7 @@ void main(int argc, char *argv[]){
     //u[1]=u[0]
     matrixShifting(bufferToRecvU1, sendCounts[rank], bufferToRecvU0);
 
-    //Broadcast of u[1]
+    //All gather of u[1]
     MPI_Allgatherv(bufferToRecvU1, sendCounts[rank], MPI_DOUBLE, u[1], sendCounts, displs, MPI_DOUBLE, MPI_COMM_WORLD);
 
     //update & absorbing energy
@@ -294,4 +246,5 @@ void main(int argc, char *argv[]){
   /* Terminate MPI */
   MPI_Finalize();
 /**********************************************************/
+  return 0;
 }

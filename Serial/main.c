@@ -5,15 +5,22 @@
 #define T 3
 #define DIMX 10000
 #define DIMY 10000
+#define RAINDROP 120.00
 #define MAX_ITER 100
 
-
+/**********************************************************/
+// Method to initialize u, alpha.
+/**********************************************************/
 void initialize(double *u[T], double *alpha){
-    int h=1;
-    int l=1;
-    double c=0.5;
-
-
+/**********************************************************/
+//LOCAL VARIABLES
+/**********************************************************/
+    const int h=1;
+    const int l=1;
+    const double c=0.5;
+/**********************************************************/
+//METHOD BODY
+/**********************************************************/
     *alpha = pow(((c*l)/h), 2);
 
     for(int i=0; i<T; i+=1){
@@ -25,30 +32,52 @@ void initialize(double *u[T], double *alpha){
             u[k][i] = 0;
         }//end-for
     }//end-for
+/**********************************************************/
 }
 
+/**********************************************************/
+// Method to shift matrices
+/**********************************************************/
 void matrixShifting(double u[], double v[]){
+/**********************************************************/
+//METHOD BODY
+/**********************************************************/
     for(int i = 0; i < DIMX*DIMY; i+=1){
         u[i] = v[i];
     }//end-for
+/**********************************************************/
 }
 
+/**********************************************************/
+// Method used to remove energy from the system
+/**********************************************************/
 void absorbingEnergy(double u[]){
-
-    //Absorbing
-    int x, y=0;
+/**********************************************************/
+//LOCAL VARIABLES
+/**********************************************************/
+    int y=0;
+/**********************************************************/
+//METHOD BODY
+/**********************************************************/
     for(int i=0; i<DIMX*DIMY; i+=1){
         //matrix notation
-        x = (i+1)/(DIMY);
-        y = ((i+1)%(DIMY))-1;
+        const int x = (i) / (DIMY);
+        y = ((i)%(DIMY));
 
         if (x!=0 && y!=0 && x!=DIMX-1 && y!=DIMY-1) {
             u[i] *= 0.995;
         }//end-if
     }//end-for
+/**********************************************************/
 }
 
+/**********************************************************/
+// Method used to visualize the matrices
+/**********************************************************/
 void printMatrix(double u[]){
+/**********************************************************/
+//METHOD BODY
+/**********************************************************/
     for(int i = 0; i < DIMX; i+=1){
         for(int j = 0; j < DIMY; j+=1){
             printf("%3.1f ", u[(i*DIMY) + j]);
@@ -56,57 +85,63 @@ void printMatrix(double u[]){
         printf("\n");
     }//end-for
     printf("\n\n\n");
+/**********************************************************/
 }
 
-
-
-void update(double u0[], double u1[], double u2[], double alpha){
-
-    //true update
-     // for(int i = 1; i < DIMX-1; i++){
-     //     for(int j = 1; j < DIMY-1; j++){
-     //         u[0][i][j] = alpha * (u[1][i-1][j] + u[1][i+1][j] + u[1][i][j-1] + u[1][i][j+1] - 4*u[1][i][j]);
-     //         u[0][i][j] += 2*u[1][i][j] - u[2][i][j];
-     //
-     //         //double prova= (alpha[i][j] * (u[1][i-1][j] + u[1][i+1][j] + u[1][i][j-1] + u[1][i][j+1] - 4*u[1][i][j])) + 2*u[1][i][j] - u[2][i][j];
-     //     }//end-for
-     // }//end-for
-
-    int x, y=0;
+/**********************************************************/
+// Method implementing the actual 2D wave equation
+/**********************************************************/
+void update(double u0[], const double u1[], const double u2[], const double alpha){
+/**********************************************************/
+//LOCAL VARIABLES
+/**********************************************************/
+    int y=0;
+/**********************************************************/
+//METHOD BODY
+/**********************************************************/
     for(int i=0; i<DIMX*DIMY; i+=1){
         //matrix notation
-        x = (i+1)/(DIMY);
-        y = ((i+1)%(DIMY))-1;
+        const int x = (i) / (DIMY);
+        y = ((i)%(DIMY));
 
         if (x!=0 && y!=0 && x!=DIMX-1 && y!=DIMY-1){
             u0[i]= alpha*(u1[(x-1)*DIMY + y] + u1[(x+1)*DIMY + y] + u1[(x)*DIMY +(y-1)] + u1[(x)*DIMY + (y+1)] -4*u1[x*DIMY+y]);
             u0[i]+= 2*u1[x*DIMY+y] - u2[i];
         }//end-if
     }//end-for
+/**********************************************************/
 }
 
+/**********************************************************/
+// Method to virtually place a raindrop
+/**********************************************************/
 void perturbate(double u[]){
-    int x=0;
-    int y=0;
-
-    //Generate random number for perturbations
-    double num=rand() % 1;
+/**********************************************************/
+//METHOD BODY
+/**********************************************************/
+    const double num=rand() % 1;
     if(num<0.02){
+        int y=0;
+        int x=0;
         x=rand() % ((DIMX-5) - 5 + 1) + 5;
         y=rand() % ((DIMY-5) - 5 + 1) + 5;
 
         for(int i = (x-2); i < (x+2); i++){
             for(int j = (y-2); j < (y+2); j++){
-                u[(i * DIMY) + j] = 120.00;
-                // u[0][i][j] = 120;
-            }
-        }
-    }
+                u[(i * DIMY) + j] = RAINDROP;
+            }//end-for
+        }//end-for
+    }//end-if
+/**********************************************************/
 }
 
-
-void createFile(FILE *fp, double u[], char filename[]) {
-
+/**********************************************************/
+// Method to save a matrix into a file
+/**********************************************************/
+void createFile(FILE *fp, double u[], char filename[]){
+/**********************************************************/
+//METHOD BODY
+/**********************************************************/
     fp=fopen(filename,"a+");
     for(int i=0; i<DIMX; i+=1) {
         for(int j=0; j<DIMY; j+=1) {
@@ -115,19 +150,23 @@ void createFile(FILE *fp, double u[], char filename[]) {
         fprintf(fp,"\n");
     }
     fclose(fp);
+/**********************************************************/
 }
 
-
+/**********************************************************/
 int main(int argc, char **argv){
-    //Initializing variables
-    srand(1);
+/**********************************************************/
+//LOCAL VARIABLES
+/**********************************************************/
     double *u[T];  //3 bc time has 3 parameters (u0, u1, u2)
     double alpha;
-    //
     // FILE *fp0;
     // FILE *fp1;
     // FILE *fp2;
-
+/**********************************************************/
+//METHOD BODY
+/**********************************************************/
+    srand(1);
     initialize(u, &alpha);
 
     int count=0;
@@ -144,13 +183,6 @@ int main(int argc, char **argv){
 
         absorbingEnergy(u[0]);
 
-        // createFile(fp0, u[0], "u0.txt");
-        // createFile(fp1, u[1], "u1.txt");
-        // createFile(fp2, u[2], "u2.txt");
-
-        //Visualizing
-        //printMatrix(u[1]);
-
         count+=1;
     }//end-while
 
@@ -159,4 +191,5 @@ int main(int argc, char **argv){
     }//end-for
 
     return 0;
+/**********************************************************/
 }
